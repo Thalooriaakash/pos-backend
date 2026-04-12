@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Inventory</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f5f6fa;
+}
+
+.sidebar{
+    width:220px;
+    background:#2f3542;
+    color:white;
+    height:100vh;
+    position:fixed;
+    padding-top:20px;
+}
+
+.sidebar a{
+    display:block;
+    color:white;
+    padding:12px;
+    text-decoration:none;
+}
+
+.sidebar a:hover{
+    background:#57606f;
+}
+
+.main{
+    margin-left:230px;
+    padding:20px;
+}
+
+.form-box{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+    margin-bottom:20px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.form-box input{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    flex:1 1 120px;
+}
+
+.form-box button{
+    padding:10px 20px;
+    background:#2ed573;
+    border:none;
+    color:white;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+.inventory-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:15px;
+}
+
+.card{
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 0 8px rgba(0,0,0,0.1);
+}
+
+.card img{
+    width:100%;
+    height:100px;
+    object-fit:cover;
+    border-radius:5px;
+}
+
+.low-blink{
+    animation: blink 1s infinite;
+}
+
+@keyframes blink{
+    0%{background:white;}
+    50%{background:#ffcccc;}
+    100%{background:white;}
+}
+
+.actions{
+    margin-top:10px;
+}
+
+.edit-btn{
+    background:#1e90ff;
+    color:white;
+    border:none;
+    padding:6px 10px;
+    border-radius:5px;
+}
+
+.delete-btn{
+    background:#ff4757;
+    color:white;
+    border:none;
+    padding:6px 10px;
+    border-radius:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2 style="text-align:center;">🍽 POS</h2>
+
+    <a href="dashboard.html">Dashboard</a>
+    <a href="products.html">Products</a>
+    <a href="orders.html">Orders</a>
+    <a href="inventory.html">Inventory</a>
+    <a href="reports.html">Reports</a>
+    <a href="live-orders.html">Live Orders</a>
+
+    <hr>
+
+    <a href="login.html">Logout</a>
+</div>
+
+<div class="main">
+<div id="lowAlert" style="margin-bottom:15px;"></div>
+
+<h2>📦 Inventory</h2>
+<div class="form-box">
+    <input id="name" placeholder="Ingredient Name">
+    <input id="stock" placeholder="Stock">
+    <input id="minQty" placeholder="Minimum Stock">
+    <input id="unit" placeholder="Unit (g/ml/kg)">
+    <input type="file" id="image">
+    <button onclick="addIngredient()">Add</button>
+</div>
+
+<!-- SEARCH -->
+<input 
+type="text" 
+id="search" 
+placeholder="🔍 Search ingredient..."
+onkeyup="searchItems()"
+style="padding:10px;margin-bottom:15px;width:250px;border-radius:5px;border:1px solid #ccc;"
+>
+
+<div id="list" class="inventory-grid"></div>
+
+</div>
+
+<script>
+
+const API = "http://localhost:5000";
+const token = localStorage.getItem("token");
+
+if(!token) window.location="login.html";
+
+let allIngredients = [];
+
+// LOAD
+function loadIngredients(){
+fetch(API+"/ingredients",{
+headers:{ Authorization:"Bearer "+token }
+})
+.then(r=>r.json())
+.then(data=>{
+allIngredients = data;
+displayIngredients(data);
+});
+}
+
+// DISPLAY
+function displayIngredients(data){
+
+const list = document.getElementById("list");
+list.innerHTML="";
+
+if(data.length===0){
+list.innerHTML="<p>No ingredients found</p>";
+return;
+}
+
+data.forEach(i=>{
+
+const low = Number(i.stock) <= Number(i.minQty || 0);
+
+list.innerHTML+=`
+<div class="card ${low ? 'low-blink' : ''}">
+
+${i.image ? `<img src="${i.image}">` : ""}
+
+<h3>${i.name || "No Name"}</h3>
+
+<p>📦 Stock: ${i.stock}${i.unit || "g"}</p>
+<p>⚠ Min: ${i.minQty || 0}${i.unit || "g"}</p>
+
+<div class="actions">
+<button class="edit-btn" onclick="editIngredient(${i.id},'${i.name}','${i.stock}','${i.minQty || 0}','${i.unit || "g"}')">Edit</button>
+<button class="delete-btn" onclick="deleteIngredient(${i.id})">Delete</button>
+</div>
+
+</div>
+`;
+});
+}
+
+// SEARCH
+function searchItems(){
+const text = document.getElementById("search").value.toLowerCase();
+
+const filtered = allIngredients.filter(i =>
+(i.name || "").toLowerCase().includes(text)
+);
+
+displayIngredients(filtered);
+}
+
+// ADD
+function addIngredient(){
+
+const formData = new FormData();
+
+formData.append("name", document.getElementById("name").value);
+formData.append("stock", document.getElementById("stock").value);
+formData.append("minQty", document.getElementById("minQty").value);
+formData.append("unit", document.getElementById("unit").value || "g");
+
+const imageInput = document.getElementById("image");
+
+if(imageInput.files[0]){
+formData.append("image", imageInput.files[0]);
+}
+
+fetch(API+"/ingredients",{
+method:"POST",
+headers:{ Authorization:"Bearer "+token },
+body:formData
+})
+.then(res => res.json())
+.then(data => {
+alert(data.message);
+
+document.getElementById("name").value = "";
+document.getElementById("stock").value = "";
+document.getElementById("minQty").value = "";
+document.getElementById("unit").value = "";
+document.getElementById("image").value = "";
+
+loadIngredients();
+});
+
+}
+
+// DELETE
+function deleteIngredient(id){
+if(confirm("Delete?")){
+fetch(API+"/ingredients/"+id,{
+method:"DELETE",
+headers:{ Authorization:"Bearer "+token }
+})
+.then(()=>loadIngredients());
+}
+}
+
+// EDIT
+function editIngredient(id,n,s,min,u){
+
+const newName = prompt("Name:", n);
+const newStock = prompt("Stock:", s);
+const newMin = prompt("Min:", min);
+const newUnit = prompt("Unit:", u);
+
+if(!newName || !newStock || !newMin) return;
+
+fetch(API+"/ingredients/"+id,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+name:newName,
+stock:newStock,
+minQty:newMin,
+unit:newUnit
+})
+})
+.then(()=>loadIngredients());
+}
+
+// INIT
+loadIngredients();
+function checkLowStock(){
+fetch(API+"/ingredients/low",{
+headers:{ Authorization:"Bearer "+token }
+})
+.then(r=>r.json())
+.then(data=>{
+if(data.length > 0){
+
+lowAlert.innerHTML = `
+<div style="background:#ff4757;color:white;padding:10px;border-radius:5px;">
+⚠ Low Ingredients: ${data.map(i=>i.name).join(", ")}
+</div>
+`;
+
+}else{
+lowAlert.innerHTML = "";
+}
+});
+}loadIngredients();
+checkLowStock();
+
+</script>
+</body>
+</html>

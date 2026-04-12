@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>User Management</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f5f6fa;
+}
+
+.sidebar{
+    width:220px;
+    background:#2f3542;
+    color:white;
+    height:100vh;
+    position:fixed;
+    padding-top:20px;
+}
+
+.sidebar a{
+    display:block;
+    color:white;
+    padding:12px;
+    text-decoration:none;
+}
+
+.sidebar a:hover{
+    background:#57606f;
+}
+
+.main{
+    margin-left:230px;
+    padding:20px;
+}
+
+.form-box{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+input, select{
+    padding:10px;
+    margin:5px;
+}
+
+button{
+    padding:8px 12px;
+    margin:5px;
+    cursor:pointer;
+}
+
+.user-card{
+    background:white;
+    padding:15px;
+    margin-bottom:10px;
+    border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2 style="text-align:center;">🍽 POS</h2>
+
+    <a href="dashboard.html">Dashboard</a>
+    <a href="products.html">Products</a>
+    <a href="orders.html">Orders</a>
+    <a href="inventory.html">Inventory</a>
+    <a href="reports.html">Reports</a>
+    <a href="liveorders.html">Live Orders</a>
+    <a href="users.html">Users</a>
+
+    <hr>
+    <a href="login.html">Logout</a>
+</div>
+
+<div class="main">
+
+<h2>👨‍💼 User Management</h2>
+
+<!-- ✅ CREATE USER -->
+<div class="form-box">
+<h3>Create User</h3>
+
+<input id="name" placeholder="Username">
+<input id="password" placeholder="Password">
+<input id="email" placeholder="Email">
+
+<select id="role">
+<option value="admin">Admin</option>
+<option value="cashier">Cashier</option>
+<option value="waiter">Waiter</option>
+</select>
+
+<button onclick="createUser()">Create</button>
+</div>
+
+<!-- ✅ USER LIST -->
+<div id="userList"></div>
+
+</div>
+
+<script>
+
+const API = "http://localhost:5000";
+const token = localStorage.getItem("token");
+
+if(!token) window.location="login.html";
+
+// ✅ LOAD USERS
+function loadUsers(){
+fetch(API+"/users",{
+headers:{ Authorization:"Bearer "+token }
+})
+.then(r=>r.json())
+.then(data=>{
+const list=document.getElementById("userList");
+list.innerHTML="";
+
+data.forEach(u=>{
+list.innerHTML+=`
+<div class="user-card">
+<h3>${u.name}</h3>
+<p>Role: ${u.role}</p>
+<p>Status: ${u.is_active ? "Active" : "Disabled"}</p>
+
+<button onclick="resetPassword(${u.id})">Reset Password</button>
+<button onclick="toggleUser(${u.id})">
+${u.is_active ? "Disable" : "Enable"}
+</button>
+</div>
+`;
+});
+});
+}
+
+// ✅ CREATE USER
+function createUser(){
+
+fetch(API+"/auth/register",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+name:document.getElementById("name").value,
+password:document.getElementById("password").value,
+role:document.getElementById("role").value,
+email:document.getElementById("email").value
+})
+})
+.then(r=>r.json())
+.then(d=>{
+alert(d.message);
+loadUsers();
+});
+}
+
+// ✅ RESET PASSWORD
+function resetPassword(userId){
+
+const newPass = prompt("Enter new password:");
+
+if(!newPass) return;
+
+fetch(API+"/auth/admin-reset",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+userId:userId,
+newPassword:newPass
+})
+})
+.then(r=>r.json())
+.then(d=>{
+alert(d.message);
+});
+}
+
+// ✅ ENABLE/DISABLE USER
+function toggleUser(id){
+
+fetch(API+"/users/"+id+"/toggle",{
+method:"PUT",
+headers:{ Authorization:"Bearer "+token }
+})
+.then(()=>loadUsers());
+}
+
+// INIT
+loadUsers();
+
+</script>
+
+</body>
+</html>

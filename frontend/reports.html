@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Reports</title>
+
+<style>
+body{font-family:Arial;background:#f5f6fa;margin:0;}
+.main{padding:20px;}
+
+input,button{
+padding:8px;margin:5px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
+background:white;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:center;
+}
+
+th{background:#2f3542;color:white;}
+
+.download-btn{
+background:green;color:white;padding:10px;
+border:none;cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="main">
+
+    <h2 style="margin:0;">📊 Reports</h2>
+</div>
+
+
+<!-- DATE FILTER -->
+<input type="date" id="date">
+<button onclick="loadByDate()">Get Report</button>
+
+<!-- PRODUCT FILTER -->
+<input type="text" id="product" placeholder="Product name">
+<input type="date" id="from">
+<input type="date" id="to">
+<button onclick="productReport()">Search</button>
+
+<button class="download-btn" onclick="downloadCSV()">Download Excel</button>
+
+<table id="table">
+<thead>
+<tr>
+<th>S.No</th>
+<th>Product</th>
+<th>Qty</th>
+<th>Price</th>
+<th>Total</th>
+<th>Date</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+<!-- ✅ ADD THIS -->
+<tfoot>
+<tr style="background:#dfe4ea;font-weight:bold;">
+<td colspan="4">TOTAL</td>
+<td id="grandTotal">₹ 0</td>
+<td colspan="2"></td>
+</tr>
+</tfoot>
+
+</table>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <button onclick="goBack()" style="
+        background:#2f3542;
+        color:white;
+        border:none;
+        padding:8px 12px;
+        border-radius:6px;
+        cursor:pointer;
+    ">
+        ⬅ Back
+    </button>
+
+</div>
+
+<script>
+const API="http://localhost:5000";
+let tableData=[];
+
+// ✅ LOAD DAILY
+function loadDaily(){
+fetch(API+"/reports/daily")
+.then(r=>r.json())
+.then(data=>{
+tableData=data;
+render(data);
+});
+}
+
+// ✅ DATE FILTER
+function loadByDate(){
+const d=document.getElementById("date").value;
+
+fetch(API+"/reports/date/"+d)
+.then(r=>r.json())
+.then(data=>{
+tableData=data;
+render(data);
+});
+}
+
+// ✅ PRODUCT REPORT
+function productReport(){
+const p=document.getElementById("product").value;
+const f=document.getElementById("from").value;
+const t=document.getElementById("to").value;
+
+fetch(`${API}/reports/product?from=${f}&to=${t}&product=${p}`)
+.then(r=>r.json())
+.then(data=>{
+let html="";
+data.forEach((d,i)=>{
+html+=`
+<tr>
+<td>${i+1}</td>
+<td>${d.name}</td>
+<td>${d.total_qty}</td>
+<td>-</td>
+<td>${d.total_sales}</td>
+<td>-</td>
+<td>-</td>
+</tr>`;
+});
+document.querySelector("#table tbody").innerHTML=html;
+});
+}
+
+// ✅ RENDER
+function render(data){
+
+let html="";
+let grandTotal = 0;
+
+data.forEach(d=>{
+grandTotal += Number(d.total);
+
+html+=`
+<tr>
+<td>${d.sno}</td>
+<td>${d.name}</td>
+<td>${d.quantity}</td>
+<td>${d.price}</td>
+<td>${d.total}</td>
+<td>${d.date}</td>
+<td>${d.time}</td>
+</tr>`;
+});
+
+// ✅ ONLY UPDATE TOTAL VALUE (NOT ROW)
+document.querySelector("#table tbody").innerHTML = html;
+document.getElementById("grandTotal").innerText = "₹ " + grandTotal;
+}
+// ✅ DOWNLOAD CSV
+function downloadCSV(){
+let csv="S.No,Product,Qty,Price,Total,Date,Time\n";
+
+tableData.forEach(d=>{
+csv+=`${d.sno},${d.name},${d.quantity},${d.price},${d.total},${d.date},${d.time}\n`;
+});
+
+const blob=new Blob([csv],{type:"text/csv"});
+const a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="report.csv";
+a.click();
+}
+
+// INIT
+loadDaily();
+
+function goBack(){
+    window.location = "dashboard.html"; // or products.html
+}
+</script>
+
+</body>
+</html>

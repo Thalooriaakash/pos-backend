@@ -1,0 +1,32 @@
+/* COMMON ONLY */
+
+body{
+    margin:0;
+    font-family: Arial;
+    background:#f5f6fa;
+}
+
+.sidebar{
+    width:220px;
+    background:#2f3542;
+    color:white;
+    height:100vh;
+    position:fixed;
+    padding-top:20px;
+}
+
+.sidebar a{
+    display:block;
+    color:white;
+    padding:12px;
+    text-decoration:none;
+}
+
+.sidebar a:hover{
+    background:#57606f;
+}
+
+.main{
+    margin-left:230px;
+    padding:20px;
+}
