@@ -1,47 +1,55 @@
 const jwt = require("jsonwebtoken");
 
-module.exports = (roles = []) => {
-    return (req, res, next) => {
+module.exports = (allowedRoles = []) => {
 
-        const authHeader = req.headers.authorization;
+  return (req, res, next) => {
 
-        // ❌ No header
-        if (!authHeader) {
-            return res.status(401).json({ message: "No token" });
-        }
+    try {
 
-        // 🔥 Extract token
-        const token = authHeader.split(" ")[1];
+      const authHeader =
+        req.headers.authorization;
 
-        if (!token) {
-            return res.status(401).json({ message: "No token" });
-        }
+      if (!authHeader) {
 
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return res.status(401).json({
+          message: "No token"
+        });
+      }
 
-            // ✅ FIX: normalize role (VERY IMPORTANT)
-            const userRole = decoded.role?.toLowerCase().trim();
+      const token =
+        authHeader.split(" ")[1];
 
-            console.log("USER ROLE:", userRole);
-            console.log("ALLOWED ROLES:", roles);
+      const decoded =
+        jwt.verify(
+          token,
+          process.env.JWT_SECRET
+        );
 
-            // ❌ Role check
-            if (roles.length && !roles.includes(userRole)) {
-                return res.status(403).json({ message: "Access denied" });
-            }
+      
+      req.user = decoded;
 
-            // ✅ attach user
-            req.user = {
-                ...decoded,
-                role: userRole
-            };
+      // ROLE CHECK
+      if (
+        allowedRoles.length > 0 &&
+        !allowedRoles.includes(
+          decoded.role.toLowerCase()
+        )
+      ) {
 
-            next();
+        return res.status(403).json({
+          message: "Access denied"
+        });
+      }
 
-        } catch (err) {
-            console.error("TOKEN ERROR:", err);
-            return res.status(401).json({ message: "Invalid token" });
-        }
-    };
+      next();
+
+    } catch (err) {
+
+      console.log(err);
+
+      return res.status(401).json({
+        message: "Invalid token"
+      });
+    }
+  };
 };

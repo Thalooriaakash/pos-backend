@@ -21,10 +21,32 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // GET
+// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
 router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
   try {
-    const [results] = await db.query("SELECT * FROM ingredients");
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
 
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
     results.forEach(i => {
       if (i.image) {
         i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
@@ -32,13 +54,444 @@ router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
       i.unit = i.unit || "g";
     });
 
-    res.json(results);
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});// ✅ GET INGREDIENTS (UPDATED FOR GLOBAL DATABASE SEARCH)
+router.get("/", auth(["admin","cashier","waiter"]), async (req, res) => {
+  try {
+    // 1. Extract 'search' from the query strings, default to empty string
+    let { page = 1, limit = 10, search = "" } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const offset = (page - 1) * limit;
+
+    // 2. Wrap the search keyword with SQL wildcards
+    const searchTerm = `%${search}%`;
+
+    // 3. Update the data query to look for the matching search pattern
+    const [results] = await db.query(
+      "SELECT * FROM ingredients WHERE name LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+      [searchTerm, limit, offset]
+    );
+
+    // 4. Update the count query so pagination totals adjust properly
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as total FROM ingredients WHERE name LIKE ?",
+      [searchTerm]
+    );
+
+    // Format your results (keeps your image processing safe)
+    results.forEach(i => {
+      if (i.image) {
+        i.image = `http://localhost:5000/${i.image.replace("\\", "/")}`;
+      }
+      i.unit = i.unit || "g";
+    });
+
+    const total = countResult[0].total;
+
+    res.json({
+      data: results,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
-
 // ADD
 router.post("/", auth(["admin"]), upload.single("image"), async (req, res) => {
   try {

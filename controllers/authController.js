@@ -1,7 +1,8 @@
  const db = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { sendOTP } = require("../utils/sendMail");
+//const { sendOTP } = require("../utils/sendMail");
+const sendOTP = require("../utils/sendOTP");
 
 
 // ✅ LOGIN (UPDATED WITH is_active + ROLE RETURN)
@@ -100,7 +101,6 @@ exports.adminResetPassword = async (req, res) => {
     }
 };
 
-
 // ✅ FORGOT PASSWORD (EMAIL OTP)
 exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
@@ -128,7 +128,9 @@ exports.forgotPassword = async (req, res) => {
         res.json({ message: "OTP sent to email" });
 
     } catch (err) {
-        res.status(500).json(err);
+        res.status(500).json({
+  message: err.message || "Internal Server Error"
+});
     }
 };
 
@@ -167,4 +169,98 @@ exports.resetPassword = async (req, res) => {
     } catch (err) {
         res.status(500).json(err);
     }
+};
+exports.verifyOTP = async (req, res) => {
+
+  const { email, otp } = req.body;
+
+  try {
+
+    const [users] = await db.query(
+      "SELECT * FROM users WHERE email=?",
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        message: "User not found"
+      });
+    }
+
+    const user = users[0];
+
+    // OTP expiry check
+    if (
+      new Date(user.otp_expiry)
+      < new Date()
+    ) {
+      return res.status(400).json({
+        message: "OTP expired"
+      });
+    }
+
+    // Compare hashed OTP
+    const valid = await bcrypt.compare(
+      otp,
+      user.otp
+    );
+
+    if (!valid) {
+      return res.status(400).json({
+        message: "Invalid OTP"
+      });
+    }
+
+    res.json({
+      message: "OTP verified"
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      message: err.message
+    });
+  }
+};
+
+
+exports.resetPassword = async (req, res) => {
+
+  const { email, newPassword } = req.body;
+
+  try {
+
+    const [users] = await db.query(
+      "SELECT * FROM users WHERE email=?",
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        message: "User not found"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // clear OTP after success (important security step)
+    await db.query(
+      `UPDATE users 
+       SET password=?, otp=NULL, otp_expiry=NULL 
+       WHERE email=?`,
+      [hashedPassword, email]
+    );
+
+    res.json({
+      message: "Password reset successful"
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      message: err.message
+    });
+  }
 };

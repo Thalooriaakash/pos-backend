@@ -1,18 +1,27 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: "yourgmail@gmail.com",
-        pass: "your_app_password" // NOT your normal password
-    }
+
+  service: "gmail",
+
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
-exports.sendOTP = async (to, otp) => {
-    await transporter.sendMail({
-        from: "yourgmail@gmail.com",
-        to,
-        subject: "Your OTP Code",
-        text: `Your OTP is ${otp}`
-    });
+const sendOTP = async (email, otp) => {
+
+  await transporter.sendMail({
+
+    from: process.env.EMAIL_USER,
+
+    to: email,
+
+    subject: "Password Reset OTP",
+
+    text: `Your OTP is ${otp}`
+  });
 };
+
+module.exports = sendOTP;

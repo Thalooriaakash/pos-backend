@@ -1,8 +1,18 @@
 const db = require("../config/db");
 
+// ==============================
 // ✅ CREATE ORDER
+// ==============================
 exports.createOrder = async (req, res) => {
-    const { items } = req.body;
+
+    //const { items } = req.body;
+const { items, parcel_total = 0 } = req.body;
+
+    // ✅ VALIDATION
+    if (!items || items.length === 0) {
+        return res.status(400).json({ message: "No items in order" });
+    }
+
     const connection = await db.getConnection();
 
     try {
@@ -12,7 +22,6 @@ exports.createOrder = async (req, res) => {
 
         for (let item of items) {
 
-            // 🔹 GET PRODUCT
             const [products] = await connection.query(
                 "SELECT * FROM products WHERE id = ?",
                 [item.product_id]
@@ -23,6 +32,12 @@ exports.createOrder = async (req, res) => {
             }
 
             const product = products[0];
+
+            // ✅ CHECK AVAILABILITY
+            if (!product.is_available) {
+                throw new Error(`${product.name} is not available`);
+            }
+
             total += product.price * item.quantity;
 
             // ===============================
@@ -41,39 +56,35 @@ exports.createOrder = async (req, res) => {
 
                 for (let r of recipeItems) {
 
-    const [ingredient] = await connection.query(
-        "SELECT * FROM ingredients WHERE id = ?",
-        [r.ingredient_id]
-    );
+                    const [ingredient] = await connection.query(
+                        "SELECT * FROM ingredients WHERE id = ?",
+                        [r.ingredient_id]
+                    );
 
-    if (ingredient.length === 0) continue;
+                    if (ingredient.length === 0) continue;
 
-    let stockValue = ingredient[0].stock;
+                    let currentStock = parseFloat(ingredient[0].stock || 0);
+                    let minStock = parseFloat(ingredient[0].minQty || 0);
 
-    let currentStock = parseFloat(stockValue);
+                    // ❌ LOW STOCK BLOCK
+                    if (currentStock <= minStock) {
+                        throw new Error(`${ingredient[0].name} is low stock`);
+                    }
 
-    // ✅ ADD THIS BLOCK HERE
-    let minStock = parseFloat(ingredient[0].minQty || 0);
+                    const requiredQty = r.quantity * item.quantity;
 
-    // ❌ BLOCK ORDER IF LOW STOCK
-    if (currentStock <= minStock) {
-        throw new Error(`${ingredient[0].name} is low stock`);
-    }
+                    // ❌ NOT ENOUGH STOCK
+                    if (currentStock < requiredQty) {
+                        throw new Error(`Not enough ${ingredient[0].name}`);
+                    }
 
-    const requiredQty = r.quantity * item.quantity;
+                    const newStock = currentStock - requiredQty;
 
-    // ❌ NOT ENOUGH STOCK
-    if (currentStock < requiredQty) {
-        throw new Error(`Not enough ${ingredient[0].name}`);
-    }
-
-    const newStock = currentStock - requiredQty;
-
-    await connection.query(
-        "UPDATE ingredients SET stock = ? WHERE id = ?",
-        [newStock, r.ingredient_id]
-    );
-}
+                    await connection.query(
+                        "UPDATE ingredients SET stock = ? WHERE id = ?",
+                        [newStock, r.ingredient_id]
+                    );
+                }
 
             } 
             // ===============================
@@ -81,28 +92,40 @@ exports.createOrder = async (req, res) => {
             // ===============================
             else {
 
-                const currentStock = Number(product.stock);
+                const currentStock = Number(product.stock || 0);
 
                 if (currentStock < item.quantity) {
                     throw new Error(`${product.name} out of stock`);
                 }
 
-                await connection.query(
-                    "UPDATE products SET stock = stock - ? WHERE id = ?",
-                    [item.quantity, product.id]
+                // ✅ SAFE UPDATE
+                const [updateResult] = await connection.query(
+                    "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+                    [item.quantity, product.id, item.quantity]
                 );
+
+                if (updateResult.affectedRows === 0) {
+                    throw new Error(`${product.name} stock conflict, try again`);
+                }
             }
         }
 
+        // ===============================
         // ✅ CREATE ORDER
-        const [orderResult] = await connection.query(
-            "INSERT INTO orders (total_amount) VALUES (?)",
-            [total]
-        );
-
+        // ===============================
+total += Number(parcel_total || 0);
+        
+const [orderResult] = await connection.query(
+  `INSERT INTO orders
+   (total_amount, parcel_total, status)
+   VALUES (?, ?, 'active')`,
+  [total, parcel_total]
+);
         const orderId = orderResult.insertId;
 
+        // ===============================
         // ✅ SAVE ORDER ITEMS
+        // ===============================
         for (let item of items) {
             await connection.query(
                 "INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)",
@@ -112,7 +135,9 @@ exports.createOrder = async (req, res) => {
 
         await connection.commit();
 
-        // 🔥 SOCKET
+        // ===============================
+        // 🔥 SOCKET (REALTIME)
+        // ===============================
         const io = req.app.get("io");
         if (io) {
             io.emit("newOrder", { orderId });
@@ -121,51 +146,71 @@ exports.createOrder = async (req, res) => {
         res.json({ message: "Order placed successfully", orderId });
 
     } catch (error) {
+
         await connection.rollback();
         console.error("ORDER ERROR:", error.message);
+
         res.status(400).json({ message: error.message });
+
     } finally {
         connection.release();
-    } if (!product.is_available) {
-    throw new Error(`${product.name} is not available`);
-}
+    }
 };
 
 
-
-// ✅ BILL
+// ==============================
+// ✅ GET BILL
+// ==============================
 exports.getOrderBill = async (req, res) => {
+
     const { id } = req.params;
 
     try {
+
         const [items] = await db.query(
-            `SELECT p.name, p.price,p.image, oi.quantity
+            `SELECT p.name, p.price, p.image, oi.quantity
              FROM order_items oi
              JOIN products p ON oi.product_id = p.id
              WHERE oi.order_id = ?`,
             [id]
         );
 
-        let total = 0;
+       const [order] = await db.query(
+  "SELECT parcel_total FROM orders WHERE id = ?",
+  [id]
+);
 
-        items.forEach(item => {
-            total += item.price * item.quantity;
-        });
+const parcelTotal = Number(order[0]?.parcel_total || 0);
 
-        res.json({ orderId: id, items, total });
+let foodTotal = 0;
+items.forEach(item => {
+  foodTotal += item.price * item.quantity;
+});
 
+const total = foodTotal + parcelTotal;
+
+res.json({
+  orderId: id,
+  items,
+  foodTotal,
+  parcelTotal,
+  total
+});
     } catch (error) {
         res.status(500).json(error);
     }
 };
 
 
-
+// ==============================
 // ✅ GET ORDER DETAILS
+// ==============================
 exports.getOrderById = async (req, res) => {
+
     const orderId = req.params.id;
 
     try {
+
         const [order] = await db.query(
             "SELECT * FROM orders WHERE id = ?",
             [orderId]
@@ -190,16 +235,18 @@ exports.getOrderById = async (req, res) => {
 };
 
 
-
+// ==============================
 // ✅ SALES SUMMARY
+// ==============================
 exports.getSalesSummary = async (req, res) => {
     try {
+
         const [totalData] = await db.query(
-            "SELECT COUNT(*) AS totalOrders, IFNULL(SUM(total_amount),0) AS totalRevenue FROM orders"
+            "SELECT COUNT(*) AS totalOrders, IFNULL(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status='active'"
         );
 
         const [todayData] = await db.query(
-            "SELECT COUNT(*) AS todayOrders, IFNULL(SUM(total_amount),0) AS todayRevenue FROM orders WHERE DATE(created_at) = CURDATE()"
+            "SELECT COUNT(*) AS todayOrders, IFNULL(SUM(total_amount),0) AS todayRevenue FROM orders WHERE DATE(created_at)=CURDATE() AND status='active'"
         );
 
         res.json({
@@ -215,13 +262,16 @@ exports.getSalesSummary = async (req, res) => {
 };
 
 
-
+// ==============================
 // ✅ UPDATE PAYMENT
+// ==============================
 exports.updatePayment = async (req, res) => {
+
     const { id } = req.params;
     const { method } = req.body;
 
     try {
+
         await db.query(
             "UPDATE orders SET payment_method=?, payment_status='paid' WHERE id=?",
             [method, id]
@@ -234,25 +284,38 @@ exports.updatePayment = async (req, res) => {
     }
 };
 
+
+// ==============================
+// ✅ RECENT ORDERS
+// ==============================
 exports.getRecentOrders = async (req, res) => {
     try {
+
         const [rows] = await db.query(`
             SELECT id, total_amount
             FROM orders
+            WHERE status='active'
             ORDER BY created_at DESC
             LIMIT 5
         `);
 
         res.json(rows);
+
     } catch (err) {
         res.status(500).json(err);
     }
 };
 
+
+// ==============================
+// ✅ SALES GRAPH
+// ==============================
 exports.getSalesGraph = async (req, res) => {
+
     const { date } = req.params;
 
     try {
+
         const [rows] = await db.query(`
             SELECT 
                 HOUR(created_at) as hour,
@@ -260,6 +323,7 @@ exports.getSalesGraph = async (req, res) => {
                 SUM(total_amount) as revenue
             FROM orders
             WHERE DATE(created_at) = ?
+            AND status='active'
             GROUP BY hour
         `, [date]);
 
@@ -270,6 +334,11 @@ exports.getSalesGraph = async (req, res) => {
         res.status(500).json({ message: "Graph error" });
     }
 };
+
+
+// ==============================
+// ✅ TOP SELLING
+// ==============================
 exports.getTopSelling = async (req, res) => {
     try {
 
@@ -279,6 +348,8 @@ exports.getTopSelling = async (req, res) => {
                 SUM(oi.quantity) AS total_sold
             FROM order_items oi
             JOIN products p ON oi.product_id = p.id
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.status='active'
             GROUP BY oi.product_id
             ORDER BY total_sold DESC
             LIMIT 5
@@ -289,27 +360,5 @@ exports.getTopSelling = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Error fetching top items" });
-    }
-};
-
-exports.getTopSelling = async (req, res) => {
-    try {
-
-        const [rows] = await db.query(`
-            SELECT 
-                p.name,
-                SUM(oi.quantity) AS total_sold
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            GROUP BY oi.product_id
-            ORDER BY total_sold DESC
-            LIMIT 5
-        `);
-
-        res.json(rows);
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Error" });
     }
 };
