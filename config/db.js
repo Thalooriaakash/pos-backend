@@ -1,10 +1,14 @@
-const mysql = require("mysql2");
+ const mysql = require('mysql2');
 
 const pool = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "1234",   // ✅ use your real password
-    database: "restaurant_pos",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  ssl: {
+    rejectUnauthorized: false // 👈 CRITICAL: Required for cloud security connections
+  }
 });
 
 module.exports = pool.promise();

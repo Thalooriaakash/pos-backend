@@ -1,6 +1,9 @@
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+//const resend = new Resend(process.env.RESEND_API_KEY);
+// This forces it to read directly from Render's cloud environment if dotenv fails
+const apiKey = process.env.RESEND_API_KEY || process.env.RESEND_API_KEY?.trim();
+const resend = new Resend(apiKey);
 
 async function sendOTP(email, otp) {
   await resend.emails.send({
